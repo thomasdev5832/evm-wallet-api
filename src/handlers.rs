@@ -212,3 +212,46 @@ pub async fn send_tokens_handler(Json(payload): Json<SendTokenRequest>) -> Respo
         }
     }
 }
+
+pub async fn get_transaction_status_handler(Path(tx_hash): Path<String>) -> Response {
+    let provider = get_provider().await;
+
+    let tx_hash = match tx_hash.parse::<ethers::types::H256>() {
+        Ok(hash) => hash,
+        Err(_) => {
+            let body = Json(json!({ "error": "Invalid transaction hash" }));
+            return (StatusCode::BAD_REQUEST, body).into_response();
+        }
+    };
+
+    match provider.get_transaction_receipt(tx_hash).await {
+        Ok(Some(receipt)) => {
+            let status = if receipt.status.unwrap_or_default().is_zero() {
+                "failed"
+            } else {
+                "success"
+            };
+            let confirmations = provider.get_block_number().await
+                .map(|current| current.saturating_sub(receipt.block_number.unwrap_or_default()))
+                .unwrap_or_default();
+            
+            let response = json!({
+                "transaction_hash": format!("{:?}", tx_hash),
+                "status": status,
+                "block_number": receipt.block_number.map(|n| n.as_u64()),
+                "gas_used": receipt.gas_used.map(|g| g.to_string()),
+                "confirmations": confirmations.as_u64(),
+            });
+
+            Json(response).into_response()
+        }
+        Ok(None) => {
+            let body = Json(json!({ "status": "pending" }));
+            (StatusCode::OK, body).into_response()
+        }
+        Err(e) => {
+            let body = Json(json!({ "error": format!("Failed to fetch transaction status: {}", e) }));
+            (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()
+        }
+    }
+}
