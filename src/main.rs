@@ -10,7 +10,7 @@ use std::env;
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
-    let _rpc = env::var("POLYGON_RPC").expect("POLYGON_RPC not set");
+    let _rpc = env::var("RPC_URL").expect("RPC_URL not set");
 
     let app = routes::create_routes();
 
