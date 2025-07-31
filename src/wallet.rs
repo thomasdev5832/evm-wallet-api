@@ -4,7 +4,7 @@ use ethers::types::{Address, TransactionRequest, H256};
 use ethers::utils::{to_checksum, parse_units, format_units};
 use bip39::{Mnemonic, Language};
 use rand::RngCore;
-use serde::Serialize;
+use serde::{Deserialize, Serialize}; 
 use ethers::utils::hex;
 use std::str::FromStr;
 use crate::provider::get_provider;
@@ -45,6 +45,39 @@ pub struct TransactionStatus {
     pub block_number: Option<u64>,
     pub gas_used: Option<String>,
     pub confirmations: u64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Transaction {
+    #[serde(rename = "blockNumber")]
+    pub block_number: String,
+    #[serde(rename = "from")]
+    pub from: String,
+    #[serde(rename = "to")]
+    pub to: String,
+    #[serde(rename = "value")]
+    pub value: String,
+    #[serde(rename = "hash")]
+    pub hash: String,
+    #[serde(rename = "gas")]
+    pub gas: String,
+    #[serde(rename = "gasPrice")]
+    pub gas_price: String,
+    #[serde(rename = "timeStamp")]
+    pub timestamp: String,
+    #[serde(rename = "input")]
+    pub input: String,
+    #[serde(rename = "isError")]
+    pub is_error: String,
+    #[serde(rename = "txreceipt_status")]
+    pub receipt_status: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct TxListResponse {
+    pub status: String,
+    pub message: String,
+    pub result: Vec<Transaction>,
 }
 
 // Generate a new wallet
@@ -238,4 +271,31 @@ pub async fn get_transaction_status(tx_hash: &str) -> Result<TransactionStatus, 
         }
         Err(e) => Err(format!("Failed to fetch transaction status: {}", e))
     }
+}
+
+pub async fn get_transactions(address: &str) -> Result<Vec<Transaction>, String> {
+    let url = format!(
+        "https://rootstock-testnet.blockscout.com/api?module=account&action=txlist&address={}&sort=desc",
+        address
+    );
+
+    let resp = reqwest::get(&url).await
+        .map_err(|e| format!("Failed to fetch transactions: {}", e))?;
+
+    let status = resp.status();
+    let text = resp.text().await
+        .map_err(|e| format!("Failed to read response body: {}", e))?;
+
+    if !status.is_success() {
+        return Err(format!("HTTP error {}: {}", status, text));
+    }
+
+    let parsed: TxListResponse = serde_json::from_str(&text)
+        .map_err(|e| format!("Failed to parse response: {}\nRaw: {}", e, text))?;
+
+    if parsed.status != "1" {
+        return Err(parsed.message);
+    }
+
+    Ok(parsed.result)
 }

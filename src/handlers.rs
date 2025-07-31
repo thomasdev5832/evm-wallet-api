@@ -1,5 +1,5 @@
 use axum::{extract::Path, response::{IntoResponse, Response}, Json, http::StatusCode};
-use serde::Deserialize;
+use serde::{Deserialize};
 use serde_json::json;
 use crate::wallet;
 
@@ -89,5 +89,13 @@ pub async fn get_transaction_status_handler(Path(tx_hash): Path<String>) -> Resp
             let body = Json(json!({ "error": error }));
             (status_code, body).into_response()
         }
+    }
+}
+
+// Handler to get transactions
+pub async fn get_transactions_handler(Path(address): Path<String>) -> impl IntoResponse {
+    match wallet::get_transactions(&address).await {
+        Ok(txs) => Json(json!({ "transactions": txs })).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e }))).into_response(),
     }
 }
