@@ -1,0 +1,35 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.EC2_SSH_KEY }}
+          known_hosts: "optional"
+
+      - name: Deploy Application
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} \
+              "cd ~/evm-wallet-api && \
+               git pull && \
+               docker build -t evm-wallet . && \
+               docker stop evm-wallet-api || true && \
+               docker rm evm-wallet-api || true && \
+               docker run -d \
+                 --memory='800m' \
+                 --cpus='0.8' \
+                 -p 3000:3000 \
+                 --env-file .env \
+                 --restart unless-stopped \
+                 --name evm-wallet-api \
+                 evm-wallet"
