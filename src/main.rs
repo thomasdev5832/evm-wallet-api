@@ -21,7 +21,7 @@ async fn main() {
 
     let app_with_cors = app.layer(cors);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000)); 
     println!("🦀 Server running at http://{}:{} - press CTRL+C to stop", addr.ip(), addr.port());
 
     Server::bind(&addr)
